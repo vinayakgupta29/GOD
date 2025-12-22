@@ -1,6 +1,6 @@
 package main
 
-import "github.com/user/god"
+import "github.com/vinayakgupta29/god"
 
 import (
 	"fmt"

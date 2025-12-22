@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	"github.com/user/god"
+	"github.com/vinayakgupta29/god"
 )
 
 // Example struct definitions
