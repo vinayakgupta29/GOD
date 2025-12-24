@@ -58,7 +58,7 @@ func main() {
 
 	// Example 4: Decoding table format
 	fmt.Println("\n4. Decoding Person Slice (Table Format):")
-	tableGOD := []byte(`(name,age,addr:"Alice",30,"NYC";"Bob",25,"LA";)`)
+	tableGOD := []byte(`{(name,age,addr:"Alice",30,"NYC";"Bob",25,"LA";)}`)
 	var decodedPeople []Person
 	err = god.Unmarshal(tableGOD, &decodedPeople)
 	if err != nil {
@@ -100,7 +100,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("Decoded map with \\0: %+v\n", result)
+	fmt.Printf("Decoded map with \\0: {errorCode=%q;errorMessage=%q}\n", result["errorCode"], result["errorMessage"])
 
 	testRule5Examples()
 	testBareTable()

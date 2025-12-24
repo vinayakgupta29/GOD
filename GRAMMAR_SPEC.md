@@ -134,7 +134,7 @@ users = (id,name,age:01,"alice",20;02,"Bob",23;);
 | **Float** | `0.0` | `0.0` |
 | **String** | `""` | `""` |
 | **Boolean** | `false` | `false` |
-| **Unknown** | `\0` | Null character |
+| **Unknown** | `""`| `""`|
 
 If a field is empty (e.g., `errorCode = ;`), it is marshalled with the `\0` character.
 

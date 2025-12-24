@@ -2,8 +2,15 @@ package god
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
+
+type Person struct {
+	Name    string `god:"name"`
+	Age     int    `god:"age"`
+	Address string `god:"addr"`
+}
 
 // Additional test struct
 type Company struct {
@@ -92,7 +99,7 @@ func TestPersonDecode(t *testing.T) {
 }
 
 func TestPersonSliceDecode(t *testing.T) {
-	dslData := []byte(`(name,age,addr:"John",12,"";)`)
+	dslData := []byte(`{(name,age,addr:"John",12,"";)}`)
 
 	var people []Person
 	err := Unmarshal(dslData, &people)
@@ -246,4 +253,31 @@ func TestEmptyFields(t *testing.T) {
 	fmt.Println("=== Empty Fields Test ===")
 	fmt.Println(string(encoded))
 	fmt.Println()
+}
+
+func TestBeautifyRootIndention(t *testing.T) {
+	data := map[string]interface{}{
+		"key": "value",
+	}
+	encoded, _ := MarshalBeautify(data)
+	s := string(encoded)
+	if !strings.Contains(s, "\n  key=") {
+		t.Errorf("Expected indentation level 1 for root items, got:\n%s", s)
+	}
+}
+
+func TestTableBeautify(t *testing.T) {
+	people := []Person{
+		{Name: "John", Age: 30, Address: "NYC"},
+		{Name: "Alice", Age: 25, Address: "Boston"},
+	}
+	encoded, _ := MarshalBeautify(people)
+	s := string(encoded)
+	fmt.Println("=== Table Beautify Test ===")
+	fmt.Println(s)
+	
+	expectedPart := "(name,age,addr:\n  \"John\",30,\"NYC\";\n  \"Alice\",25,\"Boston\";\n)"
+	if !strings.Contains(s, expectedPart) {
+		t.Errorf("Table beautify formatting incorrect. Expected part:\n%s\nGot:\n%s", expectedPart, s)
+	}
 }
