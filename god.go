@@ -76,18 +76,18 @@ func MarshalBeautify(v interface{}) ([]byte, error) {
 func marshalWithCompact(v interface{}, compact bool) ([]byte, error) {
 	var b strings.Builder
 	rv := reflect.ValueOf(v)
-	
+
 	// Handle pointers
 	if rv.Kind() == reflect.Ptr && !rv.IsNil() {
 		rv = rv.Elem()
 	}
-	
+
 	// Rule 2: Root must always be an object {}
 	// Rule 5: Root can contain either:
 	//   - A single raw value: {"string"}, {[...]}, {(table)}, etc.
 	//   - Key-value pairs: {key=value;key2=value2}
 	//   - But NOT both mixed together
-	
+
 	// If it's already a map or struct, encode normally (key-value pairs)
 	if rv.Kind() == reflect.Map || rv.Kind() == reflect.Struct {
 		if err := encodeValue(&b, rv, 1, compact); err != nil {
@@ -95,28 +95,25 @@ func marshalWithCompact(v interface{}, compact bool) ([]byte, error) {
 		}
 		return []byte(b.String()), nil
 	}
-	
+
 	// Otherwise, wrap as single raw value in {}
 	b.WriteByte('{')
 	if !compact {
 		b.WriteByte('\n')
 		b.WriteString("  ")
 	}
-	
+
 	if err := encodeValue(&b, rv, 1, compact); err != nil {
 		return nil, err
 	}
-	
+
 	if !compact {
 		b.WriteByte('\n')
 	}
 	b.WriteByte('}')
-	
+
 	return []byte(b.String()), nil
 }
-
-
-
 
 func encodeValue(b *strings.Builder, v reflect.Value, level int, compact bool) error {
 	// Handle pointers
@@ -142,15 +139,15 @@ func encodeValue(b *strings.Builder, v reflect.Value, level int, compact bool) e
 	case reflect.String:
 		return encodeString(b, v.String(), compact)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		b.WriteString(fmt.Sprintf("%d", v.Int()))
+		fmt.Fprintf(b, "%d", v.Int())
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		b.WriteString(fmt.Sprintf("%d", v.Uint()))
+		fmt.Fprintf(b, "%d", v.Uint())
 	case reflect.Float32, reflect.Float64:
 		f := v.Float()
 		if float64(int64(f)) == f {
-			b.WriteString(fmt.Sprintf("%d", int64(f)))
+			fmt.Fprintf(b, "%d", int64(f))
 		} else {
-			b.WriteString(fmt.Sprintf("%v", f))
+			fmt.Fprintf(b, "%v", f)
 		}
 	case reflect.Bool:
 		if v.Bool() {
@@ -171,49 +168,49 @@ func encodeValue(b *strings.Builder, v reflect.Value, level int, compact bool) e
 
 func encodeStruct(b *strings.Builder, v reflect.Value, level int, compact bool) error {
 	t := v.Type()
-	
+
 	b.WriteByte('{')
 	if !compact {
 		b.WriteByte('\n')
 	}
-	
+
 	first := true
 	for i := 0; i < v.NumField(); i++ {
 		field := t.Field(i)
 		fieldValue := v.Field(i)
-		
+
 		// Skip unexported fields
 		if !field.IsExported() {
 			continue
 		}
-		
+
 		// Get field name from tag or use field name
 		fieldName := field.Tag.Get("god")
 		if fieldName == "" {
 			fieldName = strings.ToLower(field.Name)
 		}
-		
+
 		if !first && compact {
 			b.WriteByte(';')
 		}
 		first = false
-		
+
 		if !compact {
 			b.WriteString(indent(level))
 		}
-		
+
 		b.WriteString(fieldName)
 		b.WriteByte('=')
-		
+
 		if err := encodeValue(b, fieldValue, level+1, compact); err != nil {
 			return err
 		}
-		
+
 		if !compact {
 			b.WriteString(";\n")
 		}
 	}
-	
+
 	if !compact {
 		b.WriteString(indent(level - 1))
 	}
@@ -226,35 +223,35 @@ func encodeMap(b *strings.Builder, v reflect.Value, level int, compact bool) err
 	if !compact {
 		b.WriteByte('\n')
 	}
-	
+
 	first := true
 	iter := v.MapRange()
 	for iter.Next() {
 		key := iter.Key()
 		val := iter.Value()
-		
+
 		if !first && compact {
 			b.WriteByte(';')
 		}
 		first = false
-		
+
 		if !compact {
 			b.WriteString(indent(level))
 		}
-		
+
 		// Key must be string
 		b.WriteString(fmt.Sprintf("%v", key.Interface()))
 		b.WriteByte('=')
-		
+
 		if err := encodeValue(b, val, level+1, compact); err != nil {
 			return err
 		}
-		
+
 		if !compact {
 			b.WriteString(";\n")
 		}
 	}
-	
+
 	if !compact {
 		b.WriteString(indent(level - 1))
 	}
@@ -267,13 +264,13 @@ func encodeSlice(b *strings.Builder, v reflect.Value, level int, compact bool) e
 		b.WriteString("[]")
 		return nil
 	}
-	
+
 	// Check if slice of structs -> use table format
 	elemType := v.Type().Elem()
 	if elemType.Kind() == reflect.Struct {
 		return encodeStructSliceAsTable(b, v, level, compact)
 	}
-	
+
 	// Regular list
 	b.WriteByte('[')
 	for i := 0; i < v.Len(); i++ {
@@ -293,9 +290,9 @@ func encodeStructSliceAsTable(b *strings.Builder, v reflect.Value, level int, co
 		b.WriteString("()")
 		return nil
 	}
-	
+
 	elemType := v.Type().Elem()
-	
+
 	// Build header from struct fields
 	var headers []string
 	for i := 0; i < elemType.NumField(); i++ {
@@ -309,9 +306,9 @@ func encodeStructSliceAsTable(b *strings.Builder, v reflect.Value, level int, co
 		}
 		headers = append(headers, fieldName)
 	}
-	
+
 	b.WriteByte('(')
-	
+
 	// Write header
 	for i, h := range headers {
 		if i > 0 {
@@ -320,17 +317,17 @@ func encodeStructSliceAsTable(b *strings.Builder, v reflect.Value, level int, co
 		b.WriteString(h)
 	}
 	b.WriteByte(':')
-	
+
 	if !compact {
 		b.WriteByte('\n')
 	}
-	
+
 	// Write rows
 	for i := 0; i < v.Len(); i++ {
 		if !compact {
 			b.WriteString(indent(level))
 		}
-		
+
 		structVal := v.Index(i)
 		exportedIdx := 0
 		for j := 0; j < elemType.NumField(); j++ {
@@ -338,12 +335,12 @@ func encodeStructSliceAsTable(b *strings.Builder, v reflect.Value, level int, co
 			if !field.IsExported() {
 				continue
 			}
-			
+
 			if exportedIdx > 0 {
 				b.WriteByte(',')
 			}
 			exportedIdx++
-			
+
 			fieldVal := structVal.Field(j)
 			if err := encodeTableCell(b, fieldVal, level+1, compact); err != nil {
 				return err
@@ -354,7 +351,7 @@ func encodeStructSliceAsTable(b *strings.Builder, v reflect.Value, level int, co
 			b.WriteByte('\n')
 		}
 	}
-	
+
 	if !compact {
 		b.WriteString(indent(level - 1))
 	}
@@ -451,19 +448,19 @@ func Unmarshal(data []byte, v interface{}) error {
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return errors.New("unmarshal target must be a non-nil pointer")
 	}
-	
+
 	p := &parser{src: data, pos: 0}
 	p.skipSpaces()
-	
+
 	target := rv.Elem()
-	
+
 	// Rule 1: Root MUST be an object {}
 	if p.peek() != '{' {
 		return fmt.Errorf("root must be an object '{...}', got '%c'", p.peek())
 	}
 	p.next() // consume '{'
 	p.skipSpaces()
-	
+
 	// Special case: Single raw table {(...)}
 	if target.Kind() == reflect.Slice && p.peek() == '(' {
 		if err := decodeTable(p, target); err != nil {
@@ -476,7 +473,7 @@ func Unmarshal(data []byte, v interface{}) error {
 		p.next()
 		return nil
 	}
-	
+
 	// If it's a struct or map, let decodeValue/decodeStruct/decodeMap handle the braces (re-parsing)
 	// Actually, we already consumed '{'.
 	if target.Kind() == reflect.Struct {
@@ -487,7 +484,7 @@ func Unmarshal(data []byte, v interface{}) error {
 		}
 		return decodeStruct(p, target)
 	}
-	
+
 	if target.Kind() == reflect.Map {
 		p.pos--
 		for p.pos > 0 && p.src[p.pos] != '{' {
@@ -500,19 +497,19 @@ func Unmarshal(data []byte, v interface{}) error {
 	if err := decodeValue(p, target); err != nil {
 		return err
 	}
-	
+
 	p.skipSpaces()
 	if p.peek() != '}' {
 		return fmt.Errorf("expected '}' at end of root object, got '%c'", p.peek())
 	}
 	p.next()
-	
+
 	return nil
 }
 
 func decodeValue(p *parser, target reflect.Value) error {
 	p.skipSpaces()
-	
+
 	// Rule 18: Empty values or \0 are zero-valued
 	if p.peek() == ';' || p.peek() == '}' || p.peek() == ',' || p.peek() == ']' || p.peek() == ')' || p.peek() == ':' {
 		target.Set(reflect.Zero(target.Type()))
@@ -521,7 +518,7 @@ func decodeValue(p *parser, target reflect.Value) error {
 		}
 		return nil
 	}
-	
+
 	// Check for \0
 	if p.pos+1 < len(p.src) && p.src[p.pos] == '\\' && p.src[p.pos+1] == '0' {
 		p.pos += 2
@@ -532,23 +529,23 @@ func decodeValue(p *parser, target reflect.Value) error {
 		}
 		return nil
 	}
-	
+
 	switch target.Kind() {
 	case reflect.Ptr:
 		if target.IsNil() {
 			target.Set(reflect.New(target.Type().Elem()))
 		}
 		return decodeValue(p, target.Elem())
-		
+
 	case reflect.Struct:
 		return decodeStruct(p, target)
-		
+
 	case reflect.Map:
 		return decodeMap(p, target)
-		
+
 	case reflect.Slice:
 		return decodeSlice(p, target)
-		
+
 	case reflect.String:
 		val, err := parseStringValue(p)
 		if err != nil {
@@ -556,7 +553,7 @@ func decodeValue(p *parser, target reflect.Value) error {
 		}
 		target.SetString(val)
 		return nil
-		
+
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		val, err := parseNumber(p)
 		if err != nil {
@@ -564,7 +561,7 @@ func decodeValue(p *parser, target reflect.Value) error {
 		}
 		target.SetInt(int64(val))
 		return nil
-		
+
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		val, err := parseNumber(p)
 		if err != nil {
@@ -572,7 +569,7 @@ func decodeValue(p *parser, target reflect.Value) error {
 		}
 		target.SetUint(uint64(val))
 		return nil
-		
+
 	case reflect.Float32, reflect.Float64:
 		val, err := parseNumber(p)
 		if err != nil {
@@ -580,7 +577,7 @@ func decodeValue(p *parser, target reflect.Value) error {
 		}
 		target.SetFloat(val)
 		return nil
-		
+
 	case reflect.Bool:
 		val, err := parseBool(p)
 		if err != nil {
@@ -588,7 +585,7 @@ func decodeValue(p *parser, target reflect.Value) error {
 		}
 		target.SetBool(val)
 		return nil
-		
+
 	case reflect.Interface:
 		// Decode as generic value
 		val, err := parseGenericValue(p)
@@ -601,7 +598,7 @@ func decodeValue(p *parser, target reflect.Value) error {
 		}
 		target.Set(reflect.ValueOf(val))
 		return nil
-		
+
 	default:
 		return fmt.Errorf("unsupported target type: %v", target.Kind())
 	}
@@ -613,10 +610,10 @@ func decodeStruct(p *parser, target reflect.Value) error {
 	}
 	p.next() // consume '{'
 	p.skipSpaces()
-	
+
 	t := target.Type()
 	fieldMap := make(map[string]int) // field name -> field index
-	
+
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if !field.IsExported() {
@@ -628,18 +625,18 @@ func decodeStruct(p *parser, target reflect.Value) error {
 		}
 		fieldMap[fieldName] = i
 	}
-	
+
 	for !p.eof() && p.peek() != '}' {
 		// Parse key
 		key := p.readBareToken()
 		p.skipSpaces()
-		
+
 		if p.peek() != '=' {
 			return fmt.Errorf("expected '=' after key '%s'", key)
 		}
 		p.next() // consume '='
 		p.skipSpaces()
-		
+
 		// Find field
 		fieldIdx, ok := fieldMap[key]
 		if !ok {
@@ -653,7 +650,7 @@ func decodeStruct(p *parser, target reflect.Value) error {
 				return err
 			}
 		}
-		
+
 		p.skipSpaces()
 		// Optional semicolon (rule 17)
 		if p.peek() == ';' {
@@ -661,12 +658,12 @@ func decodeStruct(p *parser, target reflect.Value) error {
 		}
 		p.skipSpaces()
 	}
-	
+
 	if p.peek() != '}' {
 		return errors.New("expected '}' at end of struct")
 	}
 	p.next() // consume '}'
-	
+
 	return nil
 }
 
@@ -676,19 +673,19 @@ func decodeMap(p *parser, target reflect.Value) error {
 	}
 	p.next() // consume '{'
 	p.skipSpaces()
-	
+
 	if target.IsNil() {
 		target.Set(reflect.MakeMap(target.Type()))
 	}
-	
+
 	keyType := target.Type().Key()
 	valType := target.Type().Elem()
-	
+
 	for !p.eof() && p.peek() != '}' {
 		// Parse key
 		keyStr := p.readBareToken()
 		p.skipSpaces()
-		
+
 		// Skip empty keys (can happen with extra whitespace/semicolons)
 		if keyStr == "" {
 			if p.peek() == ';' {
@@ -697,25 +694,25 @@ func decodeMap(p *parser, target reflect.Value) error {
 			}
 			continue
 		}
-		
+
 		if p.peek() != '=' {
 			return fmt.Errorf("expected '=' after key '%s', got '%c' at position %d", keyStr, p.peek(), p.pos)
 		}
 		p.next() // consume '='
 		p.skipSpaces()
-		
+
 		// Create key value
 		keyVal := reflect.New(keyType).Elem()
 		keyVal.SetString(keyStr) // Assuming string keys
-		
+
 		// Parse value
 		val := reflect.New(valType).Elem()
 		if err := decodeValue(p, val); err != nil {
 			return err
 		}
-		
+
 		target.SetMapIndex(keyVal, val)
-		
+
 		p.skipSpaces()
 		// Optional semicolon
 		if p.peek() == ';' {
@@ -723,52 +720,52 @@ func decodeMap(p *parser, target reflect.Value) error {
 		}
 		p.skipSpaces()
 	}
-	
+
 	if p.peek() != '}' {
 		return errors.New("expected '}' at end of map")
 	}
 	p.next() // consume '}'
-	
+
 	return nil
 }
 
 func decodeSlice(p *parser, target reflect.Value) error {
 	p.skipSpaces()
-	
+
 	// Check if it's a table format (for struct slices)
 	if p.peek() == '(' {
 		return decodeTable(p, target)
 	}
-	
+
 	// Regular list format
 	if p.peek() != '[' {
 		return fmt.Errorf("expected '[' or '(' for slice, got '%c'", p.peek())
 	}
 	p.next() // consume '['
 	p.skipSpaces()
-	
+
 	elemType := target.Type().Elem()
 	slice := reflect.MakeSlice(target.Type(), 0, 0)
-	
+
 	for !p.eof() && p.peek() != ']' {
 		elem := reflect.New(elemType).Elem()
 		if err := decodeValue(p, elem); err != nil {
 			return err
 		}
 		slice = reflect.Append(slice, elem)
-		
+
 		p.skipSpaces()
 		if p.peek() == ',' {
 			p.next()
 			p.skipSpaces()
 		}
 	}
-	
+
 	if p.peek() != ']' {
 		return errors.New("expected ']' at end of list")
 	}
 	p.next() // consume ']'
-	
+
 	target.Set(slice)
 	return nil
 }
@@ -779,12 +776,12 @@ func decodeTable(p *parser, target reflect.Value) error {
 	}
 	p.next() // consume '('
 	p.skipSpaces()
-	
+
 	elemType := target.Type().Elem()
 	if elemType.Kind() != reflect.Struct {
 		return errors.New("table format only supported for struct slices")
 	}
-	
+
 	// Parse header
 	var headers []string
 	for {
@@ -797,19 +794,19 @@ func decodeTable(p *parser, target reflect.Value) error {
 			p.next()
 			return nil // Empty table
 		}
-		
+
 		token := p.readUntilAny(",:")
 		token = strings.TrimSpace(token)
 		if token != "" {
 			headers = append(headers, token)
 		}
-		
+
 		p.skipSpaces()
 		if p.peek() == ',' {
 			p.next()
 		}
 	}
-	
+
 	// Build field map
 	fieldMap := make(map[string]int)
 	for i := 0; i < elemType.NumField(); i++ {
@@ -823,20 +820,20 @@ func decodeTable(p *parser, target reflect.Value) error {
 		}
 		fieldMap[fieldName] = i
 	}
-	
+
 	// Parse rows
 	slice := reflect.MakeSlice(target.Type(), 0, 0)
-	
+
 	for {
 		p.skipSpaces()
 		if p.peek() == ')' {
 			p.next()
 			break
 		}
-		
+
 		// Create new struct
 		structVal := reflect.New(elemType).Elem()
-		
+
 		// Parse cells
 		cellIdx := 0
 		for {
@@ -848,7 +845,7 @@ func decodeTable(p *parser, target reflect.Value) error {
 			if p.peek() == ')' {
 				break
 			}
-			
+
 			// Parse cell value
 			var cellStr string
 			if p.peek() == '"' {
@@ -861,7 +858,7 @@ func decodeTable(p *parser, target reflect.Value) error {
 				cellStr = p.readUntilAny(",;)")
 				cellStr = strings.TrimSpace(cellStr)
 			}
-			
+
 			// Set field value
 			if cellIdx < len(headers) {
 				headerName := headers[cellIdx]
@@ -872,17 +869,17 @@ func decodeTable(p *parser, target reflect.Value) error {
 					}
 				}
 			}
-			
+
 			cellIdx++
 			p.skipSpaces()
 			if p.peek() == ',' {
 				p.next()
 			}
 		}
-		
+
 		slice = reflect.Append(slice, structVal)
 	}
-	
+
 	target.Set(slice)
 	return nil
 }
@@ -891,7 +888,7 @@ func setFieldFromString(field reflect.Value, s string) error {
 	if s == "" {
 		return nil
 	}
-	
+
 	switch field.Kind() {
 	case reflect.String:
 		field.SetString(s)
@@ -1082,17 +1079,17 @@ func parseGenericValue(p *parser) (interface{}, error) {
 		savedPos := p.pos
 		p.next() // skip '{'
 		p.skipSpaces()
-		
+
 		if p.peek() == '}' {
 			p.next()
 			return make(map[string]interface{}), nil
 		}
-		
+
 		// Peek-ahead to see if it's a key-value or a naked value
 		p.readBareToken()
 		p.skipSpaces()
 		isMap := p.peek() == '='
-		
+
 		// Reset and decode properly
 		p.pos = savedPos
 		if isMap {
@@ -1130,7 +1127,7 @@ func parseGenericValue(p *parser) (interface{}, error) {
 	if c == 't' || c == 'f' {
 		return parseBool(p)
 	}
-	
+
 	// Check for \0
 	if p.pos+1 < len(p.src) && p.src[p.pos] == '\\' && p.src[p.pos+1] == '0' {
 		p.pos += 2
@@ -1143,7 +1140,7 @@ func parseGenericValue(p *parser) (interface{}, error) {
 func skipValue(p *parser) error {
 	p.skipSpaces()
 	c := p.peek()
-	
+
 	switch c {
 	case '{':
 		depth := 0

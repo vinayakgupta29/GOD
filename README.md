@@ -25,7 +25,7 @@ package main
 
 import (
     "fmt"
-    "github.com/vinayakgupta29/god"
+    "github.com/vinayakgupta29/GOD"
 )
 
 type User struct {
@@ -65,6 +65,73 @@ func main() {
 ```
 {
   users = (id,name,age:1,"Alice",20;2,"Bob",23;)
+}
+```
+
+## Installation
+
+Add the module to your project:
+
+```bash
+go get github.com/vinayakgupta29/GOD
+```
+
+Or specify a particular version:
+
+```bash
+go get github.com/vinayakgupta29/GOD@v1.0.0
+```
+
+Then update your dependencies:
+
+```bash
+go mod tidy
+```
+
+## Usage
+
+Import the module in your code:
+
+```go
+import "github.com/vinayakgupta29/GOD"
+```
+
+Example:
+
+```go
+package main
+
+import (
+  "fmt"
+  "github.com/vinayakgupta29/GOD"
+)
+
+func main() {
+    // Encoding a list of users
+    users := []User{
+        {ID: 1, Name: "Alice"},
+        {ID: 2, Name: "Bob"},
+    }
+    
+    encoded, _ := god.MarshalBeautify(users)
+    fmt.Println(string(encoded))
+    // Output:
+    // {
+    //   (id,name:1,"Alice";2,"Bob";)
+    // }
+
+    data := map[string]any{
+      "date":"2024-06-24",
+      "users":users,
+    }
+    enc,_ := god.MarshalBeautify(data)
+    fmt.Println(string(enc))
+    // Output:
+    // {
+    //   date="2024-06-24";
+    //   (id,name:1,"Alice";2,"Bob";)
+    // }
+
 }
 ```
 
